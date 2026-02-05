@@ -713,94 +713,70 @@ map.on('singleclick', function (evt) {
     triggerWeatherAtLocation(evt.coordinate);
 });
 
-// ============================================================
-// GESTION DU FLUX DE VENT (BOUTON DIRECT & LÉGENDE VIOLETTE)
-// ============================================================
 function toggleWindLayer() {
     const btn = document.getElementById('wind-toggle-btn');
-    if (!btn) return;
-
-    // 1. Initialisation de la couche si elle n'existe pas encore
+    // On récupère ou on crée le conteneur de légende
+    let legend = document.getElementById('wind-legend-container');
+    
+    // 1. Initialisation de la couche si elle n'existe pas
     if (!windLayer) {
         windLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
-                // On s'assure que l'URL est bien en HTTPS pour GitHub Pages
+                // URL sécurisée et standard pour éviter le blocage CORB
                 url: 'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=572c0e1351014797c4bc157ad3a2eb83',
-                crossOrigin: 'anonymous'
+                crossOrigin: 'anonymous' // REQUIS pour GitHub Pages
             }),
             opacity: 1,
             visible: false,
-            zIndex: 50
+            zIndex: 100
         });
 
-        // Boost visuel : Contraste et Saturation pour le zoom
+        // Boost visuel pour GitHub Pages
         windLayer.on('prerender', (evt) => {
-            evt.context.filter = 'brightness(1.1) contrast(1.8) saturate(2.2)';
+            evt.context.filter = 'brightness(1.1) contrast(1.7) saturate(2.0)';
         });
         windLayer.on('postrender', (evt) => {
             evt.context.filter = 'none';
         });
 
         map.addLayer(windLayer);
-
-        // 2. Création dynamique de la légende violette
-        const legend = document.createElement('div');
-        legend.id = 'wind-legend-container';
-        Object.assign(legend.style, {
-            position: 'absolute',
-            bottom: '40px',
-            right: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            padding: '12px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-            zIndex: '1000',
-            display: 'none', // Masquée par défaut
-            minWidth: '200px',
-            border: '1px solid #ccc',
-            pointerEvents: 'none'
-        });
-
-        legend.innerHTML = `
-            <div style="font-size:11px; font-weight:800; margin-bottom:8px; color:#000; text-align:center; text-transform:uppercase; font-family: Arial, sans-serif;">Vitesse du vent (km/h)</div>
-            <div style="height:14px; width:100%; border-radius:3px; background: linear-gradient(to right, 
-                #f7f7f7 0%,   /* Calme */
-                #d8b5ff 20%,  /* Brise */
-                #c154ff 40%,  /* Vent */
-                #e026ff 60%,  /* Soutenu */
-                #ff00de 80%,  /* Fort */
-                #7b00ff 100%  /* Rafales */
-            ); border: 1px solid rgba(0,0,0,0.1);">
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:10px; color:#333; margin-top:6px; font-weight:900; font-family: Arial, sans-serif;">
-                <span>0</span><span>25</span><span>50</span><span>75</span><span>100+</span>
-            </div>
-        `;
-        // On l'ajoute au conteneur de la carte
-        document.getElementById('map').appendChild(legend);
     }
 
     // 2. Logique de bascule (Toggle)
     const isVisible = windLayer.getVisible();
-    const legendEl = document.getElementById('wind-legend-container');
 
     if (!isVisible) {
-        // ACTIVATION
         windLayer.setVisible(true);
-        btn.classList.add('active');
-        if (legendEl) legendEl.style.display = 'block';
+        if (btn) btn.classList.add('active');
+        
+        // Création de la légende si absente
+        if (!legend) {
+            legend = document.createElement('div');
+            legend.id = 'wind-legend-container';
+            Object.assign(legend.style, {
+                position: 'fixed', bottom: '20px', right: '20px',
+                backgroundColor: 'white', padding: '12px', borderRadius: '8px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.4)', zIndex: '2000',
+                minWidth: '200px', border: '2px solid #c154ff', pointerEvents: 'none'
+            });
+            legend.innerHTML = `
+                <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-align:center; font-family:sans-serif; color:#000;">VITESSE DU VENT (KM/H)</div>
+                <div style="height:15px; width:100%; background: linear-gradient(to right, #f7f7f7, #d8b5ff, #c154ff, #e026ff, #ff00de, #7b00ff); border-radius:3px;"></div>
+                <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:5px; font-weight:bold; font-family:sans-serif; color:#333;">
+                    <span>0</span><span>25</span><span>50</span><span>75</span><span>100+</span>
+                </div>`;
+            document.body.appendChild(legend);
+        }
+        legend.style.display = 'block';
 
-        // Effet de focus : on baisse l'opacité du satellite pour faire ressortir le vent
+        // Assombrissement du fond pour faire ressortir le violet
         if (typeof satelliteLayer !== 'undefined' && satelliteLayer.getVisible()) {
             satelliteLayer.setOpacity(0.6);
         }
     } else {
-        // DÉSACTIVATION
         windLayer.setVisible(false);
-        btn.classList.remove('active');
-        if (legendEl) legendEl.style.display = 'none';
-
-        // Retour à l'opacité normale
+        if (btn) btn.classList.remove('active');
+        if (legend) legend.style.display = 'none';
         if (typeof satelliteLayer !== 'undefined') {
             satelliteLayer.setOpacity(1);
         }
