@@ -103,10 +103,9 @@
             font-size: 12px; 
         }
 
-        /* Grille pour aligner les labels et les valeurs */
         .popup-grid {
             display: grid;
-            grid-template-columns: 95px 1fr; /* Colonne de gauche fixe pour les labels */
+            grid-template-columns: 95px 1fr; 
             row-gap: 6px;
             align-items: start;
         }
@@ -184,6 +183,7 @@
             display: none; 
             pointer-events: none;
         }
+        
         .weather-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #00d4ff; }
         .weather-row { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
         .wind-icon { display: inline-block; color: #00d4ff; font-weight: bold; font-size: 28px; text-shadow: 0 0 8px rgba(0,212,255,0.4); }
@@ -215,6 +215,15 @@
             margin-bottom: 4px !important;
         }
         .widget-btn img { width: 25px; height: 25px; }
+
+        /* Style pour l'état actif du bouton de vent */
+        .widget-btn.active {
+            background-color: #00d4ff !important;
+            border-color: #00d4ff !important;
+        }
+        .widget-btn.active img {
+            filter: brightness(0) invert(1);
+        }
 
         .left-tools-stack {
             position: absolute;
@@ -366,6 +375,11 @@
                     <div id="layers-list" style="padding:10px;"></div>
                 </div>
             </div>
+
+            <button id="wind-toggle-btn" class="widget-btn" title="Afficher le flux de vent" onclick="toggleWindLayer()">
+                <img src="https://cdn-icons-png.flaticon.com/512/959/959711.png" alt="Vent">
+            </button>
+
         </div>
 
         <button id="open-table-btn">▲ Afficher les données</button>
@@ -398,6 +412,7 @@
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
     <script src="https://unpkg.com/@camptocamp/ogc-client@latest/dist/ogc-client.umd.js"></script>
+    <script src="script.js?v=123"></script>
     <script src="script.js"></script>
 
 </body>

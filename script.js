@@ -789,3 +789,36 @@ function toggleWindLayer() {
         if (typeof satelliteLayer !== 'undefined') satelliteLayer.setOpacity(1);
     }
 }
+
+// On force l'initialisation au chargement de la page
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM chargé, vérification du bouton vent...");
+    let btn = document.getElementById('wind-toggle-btn');
+    
+    if (!btn) {
+        console.log("Bouton absent du HTML, injection manuelle...");
+        btn = document.createElement('button');
+        btn.id = 'wind-toggle-btn';
+        btn.innerHTML = '💨'; // Icône vent
+        Object.assign(btn.style, {
+            position: 'fixed',
+            top: '250px', // On le place assez bas pour ne rien gêner
+            left: '10px',
+            zIndex: '9999',
+            width: '34px',
+            height: '34px',
+            backgroundColor: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+        });
+        document.body.appendChild(btn);
+    }
+    
+    // On lie la fonction au clic
+    btn.onclick = toggleWindLayer;
+});
