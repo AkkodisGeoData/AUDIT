@@ -714,24 +714,37 @@ map.on('singleclick', function (evt) {
 });
 
 function toggleWindLayer() {
-    const btn = document.getElementById('wind-toggle-btn');
-    // On récupère ou on crée le conteneur de légende
+    let btn = document.getElementById('wind-toggle-btn');
+    
+    // FORCE LA CRÉATION DU BOUTON S'IL EST ABSENT (Sécurité GitHub Pages)
+    if (!btn) {
+        console.warn("Bouton introuvable, création manuelle...");
+        btn = document.createElement('button');
+        btn.id = 'wind-toggle-btn';
+        btn.innerHTML = '💨'; 
+        Object.assign(btn.style, {
+            position: 'fixed', top: '150px', left: '10px', zIndex: '5000',
+            width: '34px', height: '34px', backgroundColor: 'white',
+            border: '1px solid #ccc', cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', borderRadius: '4px'
+        });
+        document.body.appendChild(btn);
+        btn.onclick = toggleWindLayer;
+    }
+
     let legend = document.getElementById('wind-legend-container');
     
-    // 1. Initialisation de la couche si elle n'existe pas
     if (!windLayer) {
         windLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
-                // URL sécurisée et standard pour éviter le blocage CORB
                 url: 'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=572c0e1351014797c4bc157ad3a2eb83',
-                crossOrigin: 'anonymous' // REQUIS pour GitHub Pages
+                crossOrigin: 'anonymous'
             }),
             opacity: 1,
             visible: false,
             zIndex: 100
         });
 
-        // Boost visuel pour GitHub Pages
         windLayer.on('prerender', (evt) => {
             evt.context.filter = 'brightness(1.1) contrast(1.7) saturate(2.0)';
         });
@@ -742,43 +755,37 @@ function toggleWindLayer() {
         map.addLayer(windLayer);
     }
 
-    // 2. Logique de bascule (Toggle)
     const isVisible = windLayer.getVisible();
 
     if (!isVisible) {
         windLayer.setVisible(true);
-        if (btn) btn.classList.add('active');
+        btn.style.backgroundColor = '#c154ff'; // Changement de couleur direct
+        btn.style.color = 'white';
         
-        // Création de la légende si absente
         if (!legend) {
             legend = document.createElement('div');
             legend.id = 'wind-legend-container';
             Object.assign(legend.style, {
                 position: 'fixed', bottom: '20px', right: '20px',
                 backgroundColor: 'white', padding: '12px', borderRadius: '8px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.4)', zIndex: '2000',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.4)', zIndex: '5000',
                 minWidth: '200px', border: '2px solid #c154ff', pointerEvents: 'none'
             });
             legend.innerHTML = `
-                <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-align:center; font-family:sans-serif; color:#000;">VITESSE DU VENT (KM/H)</div>
+                <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-align:center; color:#000; font-family:sans-serif;">VITESSE DU VENT (KM/H)</div>
                 <div style="height:15px; width:100%; background: linear-gradient(to right, #f7f7f7, #d8b5ff, #c154ff, #e026ff, #ff00de, #7b00ff); border-radius:3px;"></div>
-                <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:5px; font-weight:bold; font-family:sans-serif; color:#333;">
+                <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:5px; font-weight:bold; color:#333; font-family:sans-serif;">
                     <span>0</span><span>25</span><span>50</span><span>75</span><span>100+</span>
                 </div>`;
             document.body.appendChild(legend);
         }
         legend.style.display = 'block';
-
-        // Assombrissement du fond pour faire ressortir le violet
-        if (typeof satelliteLayer !== 'undefined' && satelliteLayer.getVisible()) {
-            satelliteLayer.setOpacity(0.6);
-        }
+        if (typeof satelliteLayer !== 'undefined') satelliteLayer.setOpacity(0.6);
     } else {
         windLayer.setVisible(false);
-        if (btn) btn.classList.remove('active');
+        btn.style.backgroundColor = 'white';
+        btn.style.color = 'black';
         if (legend) legend.style.display = 'none';
-        if (typeof satelliteLayer !== 'undefined') {
-            satelliteLayer.setOpacity(1);
-        }
+        if (typeof satelliteLayer !== 'undefined') satelliteLayer.setOpacity(1);
     }
 }
