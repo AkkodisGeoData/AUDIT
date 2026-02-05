@@ -50,6 +50,8 @@ const map = new ol.Map({
     controls: ol.control.defaults.defaults({ zoom: true, attribution: true }) 
 });
 
+let windLayer = null; // Contiendra la couche OpenWeather
+
 // ==========================================
 // BLOC A : INITIALISATION DE LA POPUP
 // ==========================================
@@ -710,3 +712,87 @@ map.on('singleclick', function (evt) {
     lastClickedFeatureId = null;
     triggerWeatherAtLocation(evt.coordinate);
 });
+
+// ============================================================
+// GESTION DU FLUX DE VENT (AVEC LÉGENDE VIOLETTE FIDÈLE)
+// ============================================================
+function toggleWindLayer() {
+    const btn = document.getElementById('wind-toggle-btn');
+    let legend = document.getElementById('wind-legend-container');
+    
+    if (!windLayer) {
+        windLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=572c0e1351014797c4bc157ad3a2eb83`,
+                crossOrigin: 'anonymous'
+            }),
+            opacity: 1,
+            visible: false,
+            zIndex: 50
+        });
+
+        // Rendu renforcé
+        windLayer.on('prerender', (evt) => {
+            evt.context.filter = 'brightness(1.1) contrast(1.8) saturate(2.2)';
+        });
+        windLayer.on('postrender', (evt) => {
+            evt.context.filter = 'none';
+        });
+
+        map.addLayer(windLayer);
+
+        legend = document.createElement('div');
+        legend.id = 'wind-legend-container';
+        Object.assign(legend.style, {
+            position: 'absolute',
+            bottom: '40px',
+            right: '20px',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            padding: '12px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+            zIndex: '1000',
+            display: 'none',
+            minWidth: '200px',
+            border: '1px solid #ccc'
+        });
+
+        // MISE À JOUR DU DÉGRADÉ (Violet / Rose / Blanc)
+        legend.innerHTML = `
+            <div style="font-size:12px; font-weight:800; margin-bottom:8px; color:#000; text-align:center; text-transform:uppercase;">Vitesse du vent (km/h)</div>
+            <div style="height:14px; width:100%; border-radius:3px; background: linear-gradient(to right, 
+                #f7f7f7 0%,   /* Vent nul (Gris très clair/Blanc) */
+                #d8b5ff 20%,  /* Vent faible (Violet clair) */
+                #c154ff 40%,  /* Vent modéré (Violet) */
+                #e026ff 60%,  /* Vent soutenu (Magenta) */
+                #ff00de 80%,  /* Vent fort (Rose vif) */
+                #7b00ff 100%  /* Tempête (Deep Purple) */
+            ); border: 1px solid rgba(0,0,0,0.1);">
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:#333; margin-top:6px; font-weight:900;">
+                <span>0</span><span>25</span><span>50</span><span>75</span><span>100+</span>
+            </div>
+        `;
+        document.getElementById('map').appendChild(legend);
+    }
+
+    const isVisible = windLayer.getVisible();
+
+    if (!isVisible) {
+        windLayer.setVisible(true);
+        btn.classList.add('active');
+        legend.style.display = 'block';
+
+        if (satelliteLayer.getVisible()) {
+            satelliteLayer.setOpacity(0.6);
+        }
+    } else {
+        windLayer.setVisible(false);
+        btn.classList.remove('active');
+        legend.style.display = 'none';
+
+        if (satelliteLayer.getVisible()) {
+            satelliteLayer.setOpacity(1);
+        }
+    }
+}
