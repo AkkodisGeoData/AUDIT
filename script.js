@@ -105,6 +105,13 @@ const tableCount = document.getElementById('table-count');
 // ==========================================
 const WEATHER_API_KEY = '572c0e1351014797c4bc157ad3a2eb83'; // Remplace par ta clé API
 
+// Fonction pour convertir les degrés en texte (N, NE, E, SE, S, SO, O, NO)
+function getWindDirection(deg) {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    const index = Math.round(deg / 45) % 8;
+    return directions[index];
+}
+
 async function triggerWeatherAtLocation(coordinate) {
     const widget = document.getElementById('weather-widget');
     if (!widget) return;
@@ -121,6 +128,10 @@ async function triggerWeatherAtLocation(coordinate) {
         const temp = Math.round(data.main.temp);
         const speedKmh = Math.round(data.wind.speed * 3.6);
         const deg = data.wind.deg;
+        
+        // ON RÉCUPÈRE LE TEXTE (SO, N, etc.)
+        const dirText = getWindDirection(deg);
+        
         const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
 
         widget.innerHTML = `
@@ -136,11 +147,11 @@ async function triggerWeatherAtLocation(coordinate) {
                 <b style="color: #fff;">${temp}°C</b>
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span style="color: #eee;">Vitesse Vent</span>
+                <span style="color: #eee;">Vent</span>
                 <b style="color: #fff;">${speedKmh} km/h</b>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                <span style="color: #eee;">Direction</span>
+                <span style="color: #eee;">Direction (${dirText})</span>
                 <span style="transform: rotate(${deg}deg); display:inline-block; font-weight:bold; color:#00d4ff; font-size: 20px;">↑</span>
             </div>
         `;
