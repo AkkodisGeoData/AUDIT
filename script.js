@@ -1026,8 +1026,11 @@ async function triggerMarineWeatherAlert(coordinate) {
                 </div>
             </div>
             <div style="font-size:8px; opacity:0.7; margin-bottom:5px; font-weight:bold;">PRÉVISIONS (24H)</div>
+            
             ${forecastHTML}
-        `;
+            <div style="width: 100%; font-size: 8px; opacity: 0.4; text-align: right; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+            SOURCES : OPENWEATHER & OPEN-METEO MARINE
+            </div>`;
 
     } catch (e) { 
         console.error("Erreur globale :", e);
