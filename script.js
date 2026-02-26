@@ -103,63 +103,158 @@ const tableBody = document.getElementById('table-body');
 const tableCount = document.getElementById('table-count');
 
 // ==========================================
-// BLOC MÉTÉO (FONCTION MANQUANTE)
+// FONCTIONS UTILITAIRES & MÉTÉO
 // ==========================================
-const WEATHER_API_KEY = '572c0e1351014797c4bc157ad3a2eb83'; // Remplace par ta clé API
 
-// Fonction pour convertir les degrés en texte (N, NE, E, SE, S, SO, O, NO)
-function getWindDirection(deg) {
+/**
+ * 1. Convertit les degrés en direction cardinale
+ */
+function getCardinalDir(angle) {
     const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-    const index = Math.round(deg / 45) % 8;
-    return directions[index];
+    return directions[Math.round((angle || 0) / 45) % 8];
 }
 
+/**
+ * 2. Mappe les codes OpenWeather vers les classes CSS de Weather Icons
+ */
+function getWeatherIconClass(owIconCode) {
+    const map = {
+        // CIEL DÉGAGÉ
+        '01d': 'wi-day-sunny',          
+        '01n': 'wi-night-clear',        
+        
+        // QUELQUES NUAGES (Soleil/Lune encore visibles)
+        '02d': 'wi-day-cloudy',         
+        '02n': 'wi-night-alt-cloudy',   
+        
+        // NUAGES ÉPARS
+        '03d': 'wi-cloud',              
+        '03n': 'wi-cloud',              
+        
+        // NUAGES COUVERTS
+        '04d': 'wi-cloudy',             
+        '04n': 'wi-cloudy',             
+        
+        // PLUIE LÉGÈRE / AVERSES
+        '09d': 'wi-day-showers',        
+        '09n': 'wi-night-alt-showers',  
+        
+        // PLUIE MODÉRÉE À FORTE
+        '10d': 'wi-day-rain',           
+        '10n': 'wi-night-alt-rain',     
+        
+        // ORAGE
+        '11d': 'wi-day-thunderstorm',   
+        '11n': 'wi-night-alt-thunderstorm', 
+        
+        // NEIGE
+        '13d': 'wi-day-snow',           
+        '13n': 'wi-night-alt-snow',     
+        
+        // BROUILLARD
+        '50d': 'wi-day-fog',            
+        '50n': 'wi-night-fog'           
+    };
+
+    // Si le code n'est pas dans la liste, on renvoie une icône neutre
+    return map[owIconCode] || 'wi-na';
+}
+/**
+ * 3. Déclenche l'affichage météo (Mode Ville/Terre)
+ */
 async function triggerWeatherAtLocation(coordinate) {
     const widget = document.getElementById('weather-widget');
     if (!widget) return;
 
-    const lonLat = ol.proj.toLonLat(coordinate);
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lonLat[1]}&lon=${lonLat[0]}&appid=${WEATHER_API_KEY}&units=metric&lang=fr`;
-
     try {
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        widget.style.display = "block";
-        const cityName = data.name || "Zone maritime";
-        const temp = Math.round(data.main.temp);
-        const speedKmh = Math.round(data.wind.speed * 3.6);
-        const deg = data.wind.deg;
-        
-        // ON RÉCUPÈRE LE TEXTE (SO, N, etc.)
-        const dirText = getWindDirection(deg);
-        
-        const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+        const lonLat = ol.proj.toLonLat(coordinate);
+        const apiKey = '572c0e1351014797c4bc157ad3a2eb83'; 
+        const urlW = `https://api.openweathermap.org/data/2.5/weather?lat=${lonLat[1]}&lon=${lonLat[0]}&appid=${apiKey}&units=metric&lang=fr`;
+        const urlF = `https://api.openweathermap.org/data/2.5/forecast?lat=${lonLat[1]}&lon=${lonLat[0]}&appid=${apiKey}&units=metric&lang=fr`;
 
+        const [resW, resF] = await Promise.all([fetch(urlW), fetch(urlF)]);
+        const data = await resW.json();
+        const fData = await resF.json();
+        
+        if (data.cod !== 200) return;
+
+        const locationName = (data.name && data.name.trim().length > 0) ? data.name : "Zone identifiée";
+        const liveDeg = data.wind.deg || 0;
+        const iconClass = getWeatherIconClass(data.weather[0].icon);
+
+        // --- PRÉVISIONS (Forecast) ---
+        const timezoneOffset = fData.city.timezone;
+        const seen = new Set();
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        let fHTML = `<div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.2);">`;
+
+        const dailyData = fData.list.filter(item => {
+            const localDate = new Date((item.dt + timezoneOffset) * 1000);
+            const itemDateStr = localDate.toISOString().split('T')[0];
+            const itemHour = localDate.getUTCHours();
+            if (itemDateStr !== todayStr && !seen.has(itemDateStr) && itemHour >= 12 && itemHour <= 15) {
+                seen.add(itemDateStr);
+                return true;
+            }
+            return false;
+        }).slice(0, 5);
+
+dailyData.forEach(d => {
+            const dt = new Date((d.dt + timezoneOffset) * 1000);
+            const fIconClass = getWeatherIconClass(d.weather[0].icon);
+            // --- NOUVELLES VARIABLES VENT ---
+            const fWindDeg = d.wind.deg || 0; 
+            const fWindSpeed = Math.round(d.wind.speed * 3.6); 
+
+            fHTML += `
+                <div style="text-align:center; flex:1; border-right: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size:9px; font-weight:bold; opacity:0.8;">${String(dt.getUTCDate()).padStart(2,'0')}/${String(dt.getUTCMonth()+1).padStart(2,'0')}</div>
+                    
+                    <i class="wi ${fIconClass}" style="font-size:18px; color:#00f2ff; margin: 8px 0; display:block; filter: drop-shadow(0 0 2px rgba(0,242,255,0.5));"></i>
+                    
+                    <div style="font-size:11px; color:#fff; font-weight:900;">${Math.round(d.main.temp)}°</div>
+                    
+                    <div style="font-size:9px; color:#adff2f; font-weight:bold; margin-top:4px;">${fWindSpeed}<span style="font-size:7px">k/h</span></div>
+                    <div style="display:flex; justify-content:center; align-items:center; gap:2px; color:#00f2ff; margin-top:2px;">
+                        <span style="font-size:8px; font-weight:900;">${getCardinalDir(fWindDeg)}</span>
+                        <span style="display:inline-block; transform:rotate(${fWindDeg}deg); font-size:10px;">↓</span>
+                    </div>
+                </div>`;
+        });
+        fHTML += `</div>`;
+
+        // --- AFFICHAGE FINAL DU WIDGET ---
+        widget.style.display = "block";
         widget.innerHTML = `
-            <div style="border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px; margin-bottom: 10px;">
-                <div style="font-size: 11px; text-transform: uppercase; color: #ffffff; font-weight: 800; opacity: 0.7;">Live Weather</div>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="font-size: 16px; font-weight: bold; color: #00d4ff;">${cityName}</div>
-                    <img src="${iconUrl}" style="width: 40px; height: 40px;">
+            <div style="font-size:9px; text-transform:uppercase; opacity:0.7; margin-bottom:5px; font-weight:bold; letter-spacing:1px;">MÉTÉO TEMPS RÉEL</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <b style="color:#00f2ff; font-size:18px;">${locationName}</b>
+                <i class="wi ${iconClass}" style="font-size:45px; color:#fff; filter: drop-shadow(0px 0px 8px rgba(255,255,255,0.4));"></i>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:4px;">
+                <span>Température</span><b>${Math.round(data.main.temp)}°C</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:4px;">
+                <span>Vent</span><b style="color:#adff2f;">${Math.round(data.wind.speed * 3.6)} km/h</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                <span>Direction</span>
+                <div style="display:flex; align-items:center; gap:6px; color:#00f2ff; font-weight:900;">
+                    <span>${getCardinalDir(liveDeg)}</span>
+                    <span style="display:inline-block; transform:rotate(${liveDeg}deg); font-size:18px;">↓</span>
                 </div>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span style="color: #eee;">Température</span>
-                <b style="color: #fff;">${temp}°C</b>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span style="color: #eee;">Vent</span>
-                <b style="color: #fff;">${speedKmh} km/h</b>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                <span style="color: #eee;">Direction (${dirText})</span>
-                <span style="transform: rotate(${deg}deg); display:inline-block; font-weight:bold; color:#00d4ff; font-size: 20px;">↑</span>
-            </div>
-        `;
-    } catch (err) {
-        console.error("Erreur météo:", err);
-        widget.style.display = "none";
+
+            ${fHTML}
+
+            <div style="width: 100%; font-size: 8px; opacity: 0.4; text-align: right; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px;">
+                SOURCE : OPENWEATHER & WI
+            </div>`;
+
+    } catch (e) { 
+        console.error("Erreur Météo :", e); 
     }
 }
 
@@ -658,7 +753,7 @@ map.on('singleclick', function (evt) {
         // CONDITION : SI DEUXIÈME CLIC SUR LE MÊME OBJET -> MÉTÉO
         if (lastClickedFeatureId === currentFeatureId) {
             overlay.setPosition(undefined); 
-            triggerWeatherAtLocation(evt.coordinate);
+            triggerMarineWeatherAlert(evt.coordinate);
             lastClickedFeatureId = null; 
             return;
         }
@@ -707,10 +802,11 @@ map.on('singleclick', function (evt) {
         }
     }
 
-    // SI CLIC DANS LE VIDE
+// SI CLIC DANS LE VIDE
     overlay.setPosition(undefined);
     lastClickedFeatureId = null;
-    triggerWeatherAtLocation(evt.coordinate);
+    // Cette fonction gère l'alerte marine et bascule sur OpenWeather si on est sur terre
+    triggerMarineWeatherAlert(evt.coordinate); 
 });
 
 function toggleWindLayer() {
@@ -822,3 +918,119 @@ window.addEventListener('DOMContentLoaded', () => {
     // On lie la fonction au clic
     btn.onclick = toggleWindLayer;
 });
+
+// --- MODULE METEO MARINE & ALERTE ---
+async function triggerMarineWeatherAlert(coordinate) {
+    const widget = document.getElementById('weather-widget');
+    if (!widget) return;
+
+    const lonLat = ol.proj.toLonLat(coordinate);
+    const [lon, lat] = lonLat;
+
+    try {
+        // --- 1. DOUBLE VÉRIFICATION (ALTITUDE + ADRESSE) ---
+        // On lance les deux tests en même temps pour gagner du temps
+        const [topoRes, geoRes] = await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+        ]);
+
+        const topoData = await topoRes.json();
+        const geoData = await geoRes.json();
+
+        const elevation = (topoData.elevation && topoData.elevation[0]) ? topoData.elevation[0] : 0;
+        
+        // On définit "isTerre" si on a une adresse OU si on est à plus de 1m d'altitude
+        const isTerre = (geoData && geoData.address && (geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.hamlet || geoData.address.postcode)) 
+                        || elevation > 1;
+
+        if (isTerre) {
+            console.log(`🏠 TERRE DÉTECTÉE (Alt: ${elevation}m / Lieu: ${geoData.display_name}) -> Bascule Ville`);
+            if (typeof triggerWeatherAtLocation === "function") {
+                triggerWeatherAtLocation(coordinate);
+            }
+            return; // ON ARRÊTE TOUT
+        }
+
+        // --- 2. SI ON EST AU LARGE ---
+        console.log("🌊 LARGE CONFIRMÉ -> Mode Marine");
+
+        const urlMarine = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction&hourly=wave_height&timezone=auto`;
+        const urlVent = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m&hourly=wind_speed_10m&wind_speed_unit=kmh&timezone=auto`;
+
+        const [resM, resV] = await Promise.all([fetch(urlMarine), fetch(urlVent)]);
+        const dataM = await resM.json();
+        const dataV = await resV.json();
+
+        if (!dataM.current) {
+            triggerWeatherAtLocation(coordinate);
+            return;
+        }
+
+        const v_houle = dataM.current.wave_height;
+        const v_houle_dir = dataM.current.wave_direction;
+        const v_vent = dataV.current.wind_speed_10m;
+        const v_vent_dir = dataV.current.wind_direction_10m;
+
+        const getStatus = (v, w) => {
+            if (v > 2.5 || w > 55) return { label: "DANGER", color: "#ff4d4d", msg: "Sortie déconseillée" };
+            if (v > 1.2 || w > 35) return { label: "VIGILANCE", color: "#ffa500", msg: "Mer agitée" };
+            return { label: "MER CALME", color: "#adff2f", msg: "Conditions optimales" };
+        };
+        const status = getStatus(v_houle, v_vent);
+
+        // --- FORECAST ---
+        let forecastHTML = `<div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.2);">`;
+        for (let i = 24; i <= 120; i += 24) { 
+            const time = new Date(dataM.hourly.time[i]);
+            forecastHTML += `
+                <div style="text-align:center; flex:1;">
+                    <div style="font-size:8px; opacity:0.8;">${time.getUTCDate()}/${time.getUTCMonth()+1}</div>
+                    <div style="font-size:11px; color:#00f2ff; font-weight:900;">${dataM.hourly.wave_height[i].toFixed(1)}m</div>
+                    <div style="font-size:9px; color:#f0f0f0; font-weight:bold;">${Math.round(dataV.hourly.wind_speed_10m[i])}<span style="font-size:6px; opacity:0.7;">km/h</span></div>
+                </div>`;
+        }
+        forecastHTML += `</div>`;
+
+        widget.style.display = "block";
+        widget.style.border = `2px solid ${status.color}`;
+        widget.style.backgroundColor = "#5d6d8e";
+
+        widget.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:9px; opacity:0.7;">METEO MARINE</b>
+                <span style="background:${status.color}; color:#000; font-size:8px; padding:2px 6px; border-radius:4px; font-weight:900;">${status.label}</span>
+            </div>
+            <div style="margin:10px 0;">
+                <b style="color:#00f2ff; font-size:16px;">Secteur de Navigation</b><br>
+                <small style="color:${status.color}">${status.msg}</small>
+            </div>
+            <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span>Houle</span>
+                    <div style="text-align:right;">
+                        <b style="color:#00f2ff;">${v_houle.toFixed(1)} m</b>
+                        <div style="font-size:10px; opacity:0.8;">
+                            ${getCardinalDir(v_houle_dir)} <span style="display:inline-block; transform:rotate(${v_houle_dir}deg);">↓</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Vent</span>
+                    <div style="text-align:right;">
+                        <b style="color:#f0f0f0;">${Math.round(v_vent)} km/h</b>
+                        <div style="font-size:10px; opacity:0.8;">
+                            ${getCardinalDir(v_vent_dir)} <span style="display:inline-block; transform:rotate(${v_vent_dir}deg);">↓</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="font-size:8px; opacity:0.7; margin-bottom:5px; font-weight:bold;">PRÉVISIONS (24H)</div>
+            ${forecastHTML}
+        `;
+
+    } catch (e) { 
+        console.error("Erreur globale :", e);
+        triggerWeatherAtLocation(coordinate);
+    }
+}
