@@ -722,7 +722,32 @@ addDataLayer('data/maritime_border.geojson', 'Frontières Maritimes', 'm_border'
 addDataLayer('data/bathy.json', 'Bathymétrie', 'bathy', 1);
 
 // Échelle et contrôles
-map.addControl(new ol.control.ScaleLine({ units: 'metric', bar: true, steps: 4, text: true, minWidth: 100 }));
+const scaleControl = new ol.control.ScaleLine({
+    units: 'metric',
+    bar: true,
+    steps: 4,
+    text: true,
+    minWidth: 100,
+    render: function(mapEvent) {
+        ol.control.ScaleLine.prototype.render.call(this, mapEvent);
+        const element = this.element.querySelector('.ol-scale-text');
+        if (element && element.innerHTML.includes(':')) {
+            const parts = element.innerHTML.split(':');
+            
+            // 1. On extrait uniquement les chiffres (on vire les virgules de Firefox)
+            const ratioBrut = parseInt(parts[1].replace(/\D/g, '')); 
+            
+            if (!isNaN(ratioBrut)) {
+                // 2. On formate avec le standard français (espace pour les milliers)
+                const ratioFormate = ratioBrut.toLocaleString('fr-FR');
+                element.innerHTML = parts[0] + ' : ' + ratioFormate;
+            }
+        }
+    }
+});
+
+map.addControl(scaleControl);
+//map.addControl(new ol.control.ScaleLine({ units: 'metric', bar: true, steps: 4, text: true, minWidth: 100 }));
 
 
 
